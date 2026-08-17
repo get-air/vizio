@@ -1,0 +1,72 @@
+{
+  "name": "@get-air/vizio",
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.16.0",
+  "description": "Promise and Effect APIs for controlling Vizio SmartCast TVs",
+  "type": "module",
+  "sideEffects": false,
+  "files": ["dist", "README.md", "LICENSE"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./effect": {
+      "types": "./dist/effect.d.ts",
+      "import": "./dist/effect.js"
+    },
+    "./tauri": {
+      "types": "./dist/Tauri.d.ts",
+      "import": "./dist/Tauri.js"
+    },
+    "./effect/tauri": {
+      "types": "./dist/Tauri.d.ts",
+      "import": "./dist/Tauri.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc -p tsconfig.json --noEmit && effect-language-service diagnostics --project tsconfig.json --strict --format text",
+    "ci": "pnpm check && pnpm test && pnpm build && npm pack --dry-run --ignore-scripts",
+    "ci:act": "act push --job ci",
+    "prepack": "pnpm build",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@get-air/cache": "^0.1.0",
+    "@get-air/http": "^0.1.0",
+    "effect": "^3.22.1"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.87.2",
+    "@effect/vitest": "^0.30.0",
+    "@tauri-apps/plugin-http": "2.5.9",
+    "@tauri-apps/plugin-store": "2.4.4",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  },
+  "peerDependencies": {
+    "@tauri-apps/plugin-http": "^2.5.9",
+    "@tauri-apps/plugin-store": "^2.4.4"
+  },
+  "peerDependenciesMeta": {
+    "@tauri-apps/plugin-http": { "optional": true },
+    "@tauri-apps/plugin-store": { "optional": true }
+  },
+  "engines": { "node": ">=20.19" },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/get-air/vizio.git"
+  },
+  "bugs": { "url": "https://github.com/get-air/vizio/issues" },
+  "homepage": "https://github.com/get-air/vizio#readme",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true,
+    "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": ["vizio", "smartcast", "tv", "effect", "tauri", "remote-control"]
+}

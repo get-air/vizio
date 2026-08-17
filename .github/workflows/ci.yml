@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run ci
+      - name: Smoke-test packed entrypoints
+        run: |
+          package_tarball=$(npm pack --silent --ignore-scripts)
+          smoke_dir=$(mktemp -d)
+          cd "$smoke_dir"
+          npm init --yes >/dev/null
+          npm install "$GITHUB_WORKSPACE/$package_tarball" >/dev/null
+          node --input-type=module -e "await import('@get-air/vizio'); await import('@get-air/vizio/effect')"
