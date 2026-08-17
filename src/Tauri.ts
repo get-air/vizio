@@ -6,6 +6,7 @@ import { Effect, Layer, Schema } from "effect"
 import { makeVizioClient, VizioClient, type VizioClientShape } from "./Client.js"
 import type { VizioInvalidConfigError } from "./Errors.js"
 import { Vizio, VizioProfiles } from "./PromiseClient.js"
+import { scanVizioSubnet, type DiscoveredVizioTv } from "./Discovery.js"
 import type { VizioPersistence } from "./Persistence.js"
 import type { TvConfig } from "./Schemas.js"
 
@@ -106,6 +107,21 @@ export const createTauriVizioProfiles = async (
 ): Promise<VizioProfiles> => {
   const persistence = await Effect.runPromise(makeTauriVizioPersistence(options))
   return new VizioProfiles(persistence)
+}
+
+export const discoverTauriVizioSubnet = (
+  subnet: string,
+  options: TauriVizioOptions & {
+    readonly timeoutMillis?: number
+    readonly concurrency?: number
+  } = {},
+): Promise<ReadonlyArray<DiscoveredVizioTv>> => {
+  const transport = makeTauriHttpTransport(httpOptions(options.http))
+  return Effect.runPromise(scanVizioSubnet(subnet, {
+    transport,
+    ...(options.timeoutMillis === undefined ? {} : { timeoutMillis: options.timeoutMillis }),
+    ...(options.concurrency === undefined ? {} : { concurrency: options.concurrency }),
+  }))
 }
 
 export type { VizioClientShape }

@@ -100,6 +100,14 @@ const tv = await createTauriVizio({
 await tv.powerOn()
 ```
 
+When the application knows its local `/24` prefix, discovery can probe both SmartCast ports through the same Rust-backed HTTP transport:
+
+```ts
+import { discoverTauriVizioSubnet } from "@get-air/vizio/tauri"
+
+const televisions = await discoverTauriVizioSubnet("192.168.1")
+```
+
 The adapter enables `acceptInvalidCerts` and `acceptInvalidHostnames`, because SmartCast TVs present a self-signed certificate whose hostname does not match the TV's LAN address. Those settings are confined to the Tauri HTTP client supplied to this Vizio instance.
 
 Allow local HTTPS and the store plugin in the consuming Tauri capability:
@@ -143,7 +151,7 @@ The default adapter stores the auth token in the application's Tauri store file.
 - Browser/global `fetch` can still be blocked by the TV's certificate policy; prefer the Tauri adapter or another native transport.
 - Newer TVs normally use port `7345`; older firmware may use `9000`.
 - HTTP power-on requires the TV's network API to remain reachable, normally through Quick Start mode. Wake-on-LAN is not implemented because this package deliberately has no native Vizio plugin.
-- Automatic mDNS/SSDP discovery is not available in the portable Web API. Applications can probe known addresses with `ping()` or provide discovery outside this package.
+- Automatic mDNS/SSDP discovery is not available without a native plugin. The package instead provides known-host probing and caller-supplied `/24` subnet scans; the Tauri variant runs those probes through `@get-air/http/tauri`.
 - Setting writes are validated when metadata is available, but firmware-reported ranges can be wrong. Invalid low-level settings can damage TV configuration; prefer the high-level controls.
 
 ## Protocol acknowledgements

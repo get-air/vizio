@@ -8,6 +8,7 @@ export {
   type VizioClientShape,
 } from "./Client.js"
 export * from "./Errors.js"
+export { probeVizioHost, scanVizioSubnet, type DiscoveredVizioTv, type VizioDiscoveryOptions } from "./Discovery.js"
 export { makeVizioProfileStore, MemoryVizioPersistence, type VizioPersistence, type VizioProfileStore } from "./Persistence.js"
 export { BUILTIN_APPS, parseRemoteAppCatalog, VIZIO_APP_AVAILABILITY_URL, VIZIO_APP_CATALOG_URL } from "./Apps.js"
 export { REMOTE_KEYS, remoteEvent, textEvents, type RemoteKey } from "./Remote.js"

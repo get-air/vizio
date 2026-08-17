@@ -7,6 +7,12 @@ import {
   type VizioClientShape,
 } from "./Client.js"
 import type { VizioError } from "./Errors.js"
+import {
+  probeVizioHost,
+  scanVizioSubnet,
+  type DiscoveredVizioTv,
+  type VizioDiscoveryOptions,
+} from "./Discovery.js"
 import { makeVizioProfileStore, type VizioPersistence } from "./Persistence.js"
 import type { RemoteKey } from "./Remote.js"
 import type {
@@ -134,6 +140,17 @@ export interface CreateVizioOptions extends VizioClientOptions {
 export const createVizio = (options: CreateVizioOptions): Promise<Vizio> =>
   Vizio.connect(options.config, options)
 
+export const probeVizio = async (
+  ip: string,
+  options: VizioDiscoveryOptions = {},
+): Promise<DiscoveredVizioTv | undefined> =>
+  Option.getOrUndefined(await run(probeVizioHost(ip, options)))
+
+export const discoverVizioSubnet = (
+  subnet: string,
+  options: VizioDiscoveryOptions = {},
+): Promise<ReadonlyArray<DiscoveredVizioTv>> => run(scanVizioSubnet(subnet, options))
+
 export class VizioProfiles {
   private readonly store
 
@@ -150,3 +167,4 @@ export class VizioProfiles {
 }
 
 export type { HttpTransport, VizioClientOptions }
+export type { DiscoveredVizioTv, VizioDiscoveryOptions }
