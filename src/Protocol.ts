@@ -69,12 +69,13 @@ export const recordField = (value: JsonRecord, key: string): JsonRecord | undefi
 
 export const recordsField = (value: JsonRecord, key: string): ReadonlyArray<JsonRecord> => {
   const candidate = field(value, key)
-  return Array.isArray(candidate)
-    ? candidate.flatMap((item) => {
-        const parsed = record(item)
-        return parsed === undefined ? [] : [parsed]
-      })
-    : []
+  if (!Array.isArray(candidate)) return []
+  const records: JsonRecord[] = []
+  for (const item of candidate) {
+    const parsed = record(item)
+    if (parsed !== undefined) records.push(parsed)
+  }
+  return records
 }
 
 export const responseItem = (response: ProtocolResponse): JsonRecord | undefined =>

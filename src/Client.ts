@@ -1,4 +1,5 @@
-import { Cache, type CacheStore } from "@get-air/cache"
+import type { CacheStore } from "@get-air/cache"
+import { CacheStoreService, EffectCache } from "@get-air/cache/effect"
 import { FunctionHttpTransport, type HttpTransport } from "@get-air/http"
 import { Effect, Layer, Option, Ref } from "effect"
 import {
@@ -161,16 +162,23 @@ export const makeVizioClient = Effect.fn("VizioClient.make")(function* (
   }
   const transport = options.transport ?? FunctionHttpTransport.global()
   const timeoutMillis = config.timeoutMillis ?? DEFAULT_TIMEOUT_MILLIS
-  const authToken = yield* Ref.make(Option.fromNullable(config.authToken))
+  const protocolFor = (authToken?: string) => makeProtocolClient({
+    host, timeoutMillis, transport,
+    ...(authToken === undefined ? {} : { authToken }),
+  })
+  const protocol = yield* Ref.make(protocolFor(config.authToken))
   const mutex = yield* Effect.makeSemaphore(1)
-  const cache = options.cache === undefined ? Option.none<Cache>() : Option.some(new Cache(options.cache, APP_CACHE_NAMESPACE))
+  const cache = Option.map(Option.fromNullable(options.cache), (store) => ({
+    store,
+    client: new EffectCache(APP_CACHE_NAMESPACE),
+  }))
   const appCatalog = yield* Ref.make<ReadonlyArray<AppRecord>>(options.appCatalog ?? BUILTIN_APPS)
 
   if (options.appCatalog === undefined && Option.isSome(cache)) {
-    const cached = yield* Effect.tryPromise({
-      try: () => cache.value.get("catalog"),
-      catch: () => new VizioInvalidResponseError({ path: "app catalog cache", message: "Cache read failed" }),
-    }).pipe(Effect.option)
+    const cached = yield* cache.value.client.get("catalog").pipe(
+      Effect.provideService(CacheStoreService, cache.value.store),
+      Effect.option,
+    )
     if (Option.isSome(cached) && cached.value !== undefined) {
       const cachedValue = cached.value
       const parsed = yield* Effect.try({
@@ -189,14 +197,7 @@ export const makeVizioClient = Effect.fn("VizioClient.make")(function* (
   }
 
   const requestUnlocked = Effect.fn("VizioClient.requestUnlocked")(function* (input: RawVizioRequest) {
-    const token = yield* Ref.get(authToken)
-    const protocol = makeProtocolClient({
-      host,
-      timeoutMillis,
-      transport,
-      ...(Option.isSome(token) ? { authToken: token.value } : {}),
-    })
-    return yield* protocol.request(input)
+    return yield* (yield* Ref.get(protocol)).request(input)
   })
 
   const request = Effect.fn("VizioClient.request")(function* (input: RawVizioRequest) {
@@ -314,7 +315,7 @@ export const makeVizioClient = Effect.fn("VizioClient.make")(function* (
         message: "Pairing response is missing AUTH_TOKEN",
       })
     }
-    yield* Ref.set(authToken, Option.some(token))
+    yield* Ref.set(protocol, protocolFor(token))
     return token
   })
 
@@ -548,13 +549,12 @@ export const makeVizioClient = Effect.fn("VizioClient.make")(function* (
   const setAppCatalog = Effect.fn("VizioClient.setAppCatalog")(function* (apps: ReadonlyArray<AppRecord>) {
     yield* Ref.set(appCatalog, apps)
     if (Option.isSome(cache)) {
-      yield* Effect.tryPromise({
-        try: () => cache.value.set("catalog", JSON.stringify(apps), { ttlMillis: 24 * 60 * 60 * 1_000 }),
-        catch: (cause) => new VizioInvalidResponseError({
-          path: "app catalog cache",
-          message: unknownMessage(cause),
-        }),
-      }).pipe(Effect.ignore)
+      yield* cache.value.client.set("catalog", JSON.stringify(apps), {
+        ttlMillis: 24 * 60 * 60 * 1_000,
+      }).pipe(
+        Effect.provideService(CacheStoreService, cache.value.store),
+        Effect.ignore,
+      )
     }
   })
 
@@ -715,24 +715,16 @@ export const makeVizioClient = Effect.fn("VizioClient.make")(function* (
     })
   })
 
-  const getSerialNumber = Effect.fn("VizioClient.getSerialNumber")(function* () {
-    return yield* getIdentityValue("serial_number", [
-      `${ROOT}/admin_and_privacy/system_information/tv_information/serial_number`,
-      `${ROOT}/system/system_information/tv_information/serial_number`,
-    ])
-  })
-  const getEsn = Effect.fn("VizioClient.getEsn")(function* () {
-    return yield* getIdentityValue("esn", [
-      `${ROOT}/admin_and_privacy/system_information/uli_information/esn`,
-      `${ROOT}/system/system_information/uli_information/esn`,
-    ])
-  })
-  const getVersion = Effect.fn("VizioClient.getVersion")(function* () {
-    return yield* getIdentityValue("version", [
-      `${ROOT}/admin_and_privacy/system_information/tv_information/version`,
-      `${ROOT}/system/system_information/tv_information/version`,
-    ])
-  })
+  const identity = (method: string, item: string, section: string) =>
+    Effect.fn(`VizioClient.${method}`)(function* () {
+      return yield* getIdentityValue(item, [
+        `${ROOT}/admin_and_privacy/system_information/${section}/${item}`,
+        `${ROOT}/system/system_information/${section}/${item}`,
+      ])
+    })
+  const getSerialNumber = identity("getSerialNumber", "serial_number", "tv_information")
+  const getEsn = identity("getEsn", "esn", "uli_information")
+  const getVersion = identity("getVersion", "version", "tv_information")
 
   const getSystemVersions = Effect.fn("VizioClient.getSystemVersions")(function* () {
     return (yield* request({ method: "GET", path: "/system/versions" })).raw

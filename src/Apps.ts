@@ -1,4 +1,4 @@
-import type { AppRecord } from "./Schemas.js"
+import type { AppConfig, AppRecord } from "./Schemas.js"
 
 export const VIZIO_APP_CATALOG_URL = "https://scfs.vizio.com/appservice/vizio_apps_prod.json"
 export const VIZIO_APP_AVAILABILITY_URL = "https://scfs.vizio.com/appservice/app_availability_prod.json"
@@ -44,6 +44,15 @@ const parseConfig = (value: unknown) => {
   }
 }
 
+const parseConfigs = (variants: readonly unknown[]): AppConfig[] => {
+  const configs: AppConfig[] = []
+  for (const variant of variants) {
+    const config = parseConfig(record(variant)?.app_type_payload)
+    if (config !== undefined) configs.push(config)
+  }
+  return configs
+}
+
 /** Parses Vizio's current catalog + availability documents into launchable records. */
 export const parseRemoteAppCatalog = (
   catalogDocument: unknown,
@@ -58,9 +67,10 @@ export const parseRemoteAppCatalog = (
     }
   }
 
-  return catalogDocument.flatMap((entry): ReadonlyArray<AppRecord> => {
+  const apps: AppRecord[] = []
+  for (const entry of catalogDocument) {
     const candidate = record(entry)
-    if (candidate === undefined || typeof candidate.name !== "string") return []
+    if (candidate === undefined || typeof candidate.name !== "string") continue
     const id = typeof candidate.id === "string" || typeof candidate.id === "number"
       ? String(candidate.id)
       : ""
@@ -75,11 +85,7 @@ export const parseRemoteAppCatalog = (
       : chipsets === undefined
         ? []
         : Object.values(chipsets).find(Array.isArray) ?? []
-    const configs = variants.flatMap((variant) => {
-      const variantRecord = record(variant)
-      const config = parseConfig(variantRecord?.app_type_payload)
-      return config === undefined ? [] : [config]
-    })
-    return [{ name: candidate.name, countries, configs }]
-  })
+    apps.push({ name: candidate.name, countries, configs: parseConfigs(variants) })
+  }
+  return apps
 }
